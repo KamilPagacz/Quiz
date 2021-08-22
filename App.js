@@ -1,21 +1,68 @@
-import { StatusBar } from 'expo-status-bar';
+import { createDrawerNavigator } from '@react-navigation/drawer';
+import { NavigationContainer } from '@react-navigation/native';
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StatusBar } from 'react-native'
+import { getData, storeData } from "./services/AsyncStorage";
+import Regulations from './components/Regulations';
+import Home from './screens/HomeScreen';
+import Test from './screens/TestScreen';
+import Scores from './screens/ScoreScreen';
+import SideMenu from './components/SideMenu';
 
-export default function App() {
+const Drawer = createDrawerNavigator();
+const _ = require('lodash');
+
+function MyDrawer() {
   return (
-    <View style={styles.container}>
-      <Text>Open up App.js to start working on your app!</Text>
-      <StatusBar style="auto" />
-    </View>
+    <Drawer.Navigator
+      drawerContent={props => <SideMenu {...props} />}
+      initialRouteName="home">
+      <Drawer.Screen name="home" component={Home} />
+      <Drawer.Screen name="scores" component={Scores} />
+      <Drawer.Screen name="test" component={Test} />
+    </Drawer.Navigator>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
+export default class App extends React.Component {
+  constructor() {
+    super();
+    this.state = {
+      showRegulations: true,
+    }
+  }
+
+  componentDidMount() {
+    getData('RULES')
+      .then(data => data == 'true')
+      .then(data => this.setState({ showRegulations: data }));
+
+    fetch(`http://tgryl.pl/quiz/tests`)
+      .then(res => res.json())
+      .then(quizList => {
+        storeData('quizlist', JSON.stringify(quizList));
+        quizList.map((item) => {
+          let id = item.id;
+          fetch(`http://tgryl.pl/quiz/test/${id}`)
+            .then(res => res.json())
+            .then(quiz => storeData(id, JSON.stringify(quiz)));
+        })
+      });
+  }
+
+  handleAcceptRules = () => {
+    storeData('RULES', 'false')
+      .then(() => this.setState({ showRegulations: false }));
+  }
+
+  render() {
+    //storeData('RULES', 'true');
+    return (
+      <NavigationContainer>
+        <StatusBar backgroundColor="#4f6d7a" />
+        <Regulations visible={this.state.showRegulations} onPress={this.handleAcceptRules} />
+        <MyDrawer />
+      </NavigationContainer>
+    );
+  }
+}
